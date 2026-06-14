@@ -10,6 +10,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ✅ Validação das variáveis antes do deploy
+      - name: Validate required environment variables
+        run: |
+          missing=0
+
+          check() {
+            if [ -z "$1" ]; then
+              echo "❌ Missing: $2"
+              missing=1
+            fi
+          }
+
+          check "${{ vars.KC_DB }}" KC_DB
+          check "${{ secrets.KC_DB_URL }}" KC_DB_URL
+          check "${{ vars.KC_DB_USERNAME }}" KC_DB_USERNAME
+          check "${{ secrets.KC_DB_PASSWORD }}" KC_DB_PASSWORD
+          check "${{ vars.KC_BOOTSTRAP_ADMIN_USERNAME }}" KC_BOOTSTRAP_ADMIN_USERNAME
+          check "${{ secrets.KC_BOOTSTRAP_ADMIN_PASSWORD }}" KC_BOOTSTRAP_ADMIN_PASSWORD
+          check "${{ vars.KC_HTTP_ENABLED }}" KC_HTTP_ENABLED
+          check "${{ vars.KC_HOSTNAME_STRICT }}" KC_HOSTNAME_STRICT
+          check "${{ vars.KC_PROXY_HEADERS }}" KC_PROXY_HEADERS
+          check "${{ vars.KC_HOSTNAME }}" KC_HOSTNAME
+
+          if [ $missing -eq 1 ]; then
+            echo "🚨 Aborting: Missing required variables!"
+            exit 1
+          fi
+
+          echo "✅ All required variables are set"
+
+      # ✅ Deploy
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -19,7 +53,10 @@ jobs:
           script: |
             cd ${{ secrets.EC2_PROJECT_PATH }}
 
-            # cria o arquivo .env dinamicamente
+            echo "📦 Pulling latest code..."
+            git pull origin main
+
+            echo "📝 Creating .env file..."
             cat <<EOF > .env
             KC_DB=${{ vars.KC_DB }}
             KC_DB_URL=${{ secrets.KC_DB_URL }}
@@ -35,5 +72,7 @@ jobs:
             KC_HOSTNAME=${{ vars.KC_HOSTNAME }}
             EOF
 
-            git pull origin main
+            echo "🐳 Starting containers..."
             docker compose --env-file .env up -d --build
+
+            echo "✅ Deploy finished successfully"

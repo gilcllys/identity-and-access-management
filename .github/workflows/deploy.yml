@@ -65,7 +65,8 @@ jobs:
             git pull origin main
 
             echo "🔐 Generating self-signed SSL certificates if missing..."
-            mkdir -p ./certs
+            sudo mkdir -p ./certs
+            sudo chown -R ubuntu:ubuntu ./certs
             if [ ! -f ./certs/fullchain.pem ] || [ ! -f ./certs/privkey.pem ]; then
               openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout ./certs/privkey.pem \

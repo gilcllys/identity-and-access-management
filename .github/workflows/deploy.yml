@@ -13,8 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Validação das variáveis antes do deploy
-      - name: Validate required environment variables
+      # ✅ Validação COMPLETA (EC2 + APP)
+      - name: Validate required variables
         run: |
           missing=0
 
@@ -25,6 +25,13 @@ jobs:
             fi
           }
 
+          echo "🔍 Validating EC2 variables..."
+          check "${{ vars.EC2_HOST }}" EC2_HOST
+          check "${{ vars.EC2_USER }}" EC2_USER
+          check "${{ vars.EC2_PROJECT_PATH }}" EC2_PROJECT_PATH
+          check "${{ secrets.EC2_SSH_KEY }}" EC2_SSH_KEY
+
+          echo "🔍 Validating application variables..."
           check "${{ vars.KC_DB }}" KC_DB
           check "${{ secrets.KC_DB_URL }}" KC_DB_URL
           check "${{ vars.KC_DB_USERNAME }}" KC_DB_USERNAME
@@ -37,7 +44,7 @@ jobs:
           check "${{ vars.KC_HOSTNAME }}" KC_HOSTNAME
 
           if [ $missing -eq 1 ]; then
-            echo "🚨 Aborting: Missing required variables!"
+            echo "🚨 Aborting deploy due to missing variables!"
             exit 1
           fi
 
@@ -51,6 +58,9 @@ jobs:
           username: ${{ vars.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+
+            echo "📁 Going to project folder..."
             cd ${{ vars.EC2_PROJECT_PATH }}
 
             echo "📦 Pulling latest code..."
@@ -72,7 +82,8 @@ jobs:
             KC_HOSTNAME=${{ vars.KC_HOSTNAME }}
             EOF
 
-            echo "🐳 Starting containers..."
+            echo "🐳 Restarting containers..."
+            docker compose down || true
             docker compose --env-file .env up -d --build
 
             echo "✅ Deploy finished successfully"

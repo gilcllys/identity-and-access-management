@@ -10,45 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Validate required variables
-        run: |
-          missing=0
-
-          check() {
-            if [ -z "$1" ]; then
-              echo "❌ Missing: $2"
-              missing=1
-            fi
-          }
-
-          echo "🔍 Validating EC2 variables..."
-          check "${{ vars.EC2_HOST }}" EC2_HOST
-          check "${{ vars.EC2_USER }}" EC2_USER
-          check "${{ vars.EC2_PROJECT_PATH }}" EC2_PROJECT_PATH
-          check "${{ secrets.EC2_SSH_KEY }}" EC2_SSH_KEY
-
-          echo "🔍 Validating application variables..."
-          check "${{ vars.KC_DB }}" KC_DB
-          check "${{ secrets.KC_DB_URL }}" KC_DB_URL
-          check "${{ vars.KC_DB_USERNAME }}" KC_DB_USERNAME
-          check "${{ secrets.KC_DB_PASSWORD }}" KC_DB_PASSWORD
-          check "${{ vars.KC_BOOTSTRAP_ADMIN_USERNAME }}" KC_BOOTSTRAP_ADMIN_USERNAME
-          check "${{ secrets.KC_BOOTSTRAP_ADMIN_PASSWORD }}" KC_BOOTSTRAP_ADMIN_PASSWORD
-          check "${{ vars.KC_HTTP_ENABLED }}" KC_HTTP_ENABLED
-          check "${{ vars.KC_HOSTNAME_STRICT }}" KC_HOSTNAME_STRICT
-          check "${{ vars.KC_PROXY_HEADERS }}" KC_PROXY_HEADERS
-          check "${{ vars.KC_HOSTNAME }}" KC_HOSTNAME
-
-          if [ $missing -eq 1 ]; then
-            echo "🚨 Aborting deploy due to missing variables!"
-            exit 1
-          fi
-
-          echo "✅ All required variables are set"
-
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -57,51 +18,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-
-            echo "📁 Going to project folder..."
             cd ${{ vars.EC2_PROJECT_PATH }}
-
-            echo "📦 Pulling latest code..."
             git pull origin main
-
-            echo "🔐 Generating self-signed SSL certificates if missing..."
-            sudo mkdir -p ./certs
-            sudo chown -R ubuntu:ubuntu ./certs
-            if [ ! -f ./certs/fullchain.pem ] || [ ! -f ./certs/privkey.pem ]; then
-              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout ./certs/privkey.pem \
-                -out ./certs/fullchain.pem \
-                -subj "/C=BR/ST=SP/L=SP/O=IAM/CN=localhost"
-              echo "✅ Certificates generated"
-            else
-              echo "✅ Certificates already exist, skipping"
-            fi
-
-            echo "📝 Creating .env file..."
-            printf 'KC_DB=%s\n' '${{ vars.KC_DB }}' > .env
-            printf 'KC_DB_URL=%s\n' '${{ secrets.KC_DB_URL }}' >> .env
-            printf 'KC_DB_USERNAME=%s\n' '${{ vars.KC_DB_USERNAME }}' >> .env
-            printf 'KC_DB_PASSWORD=%s\n' '${{ secrets.KC_DB_PASSWORD }}' >> .env
-            printf 'KC_BOOTSTRAP_ADMIN_USERNAME=%s\n' '${{ vars.KC_BOOTSTRAP_ADMIN_USERNAME }}' >> .env
-            printf 'KC_BOOTSTRAP_ADMIN_PASSWORD=%s\n' '${{ secrets.KC_BOOTSTRAP_ADMIN_PASSWORD }}' >> .env
-            printf 'KC_HTTP_ENABLED=%s\n' '${{ vars.KC_HTTP_ENABLED }}' >> .env
-            printf 'KC_HOSTNAME_STRICT=%s\n' '${{ vars.KC_HOSTNAME_STRICT }}' >> .env
-            printf 'KC_PROXY_HEADERS=%s\n' '${{ vars.KC_PROXY_HEADERS }}' >> .env
-            printf 'KC_HOSTNAME=%s\n' '${{ vars.KC_HOSTNAME }}' >> .env
-
-            echo "🔍 DEBUG - Admin password first 3 chars: $(grep KC_BOOTSTRAP_ADMIN_PASSWORD .env | cut -d= -f2 | cut -c1-3)"
-            echo "🔍 DEBUG - DB password first 3 chars: $(grep KC_DB_PASSWORD .env | cut -d= -f2 | cut -c1-3)"
-
-            echo "🐳 Restarting containers..."
-            docker compose down || true
-            docker compose --env-file .env up -d --build
-
-            echo "🔒 Ajustando permissões dos certificados SSL para nginx do host..."
-            sudo chmod 755 /home/ubuntu /home/ubuntu/identity-and-access-management /home/ubuntu/identity-and-access-management/certs || true
-            sudo chmod 644 /home/ubuntu/identity-and-access-management/certs/fullchain.pem 2>/dev/null || true
-            sudo chmod 644 /home/ubuntu/identity-and-access-management/certs/privkey.pem 2>/dev/null || true
-
-            echo "🔄 Reloading host nginx..."
+            docker compose up -d --build
+            sudo chmod 644 ./certs/fullchain.pem ./certs/privkey.pem 2>/dev/null || true
             sudo nginx -t && sudo systemctl reload nginx
-
-            echo "✅ Deploy finished successfully"
+            echo "✅ Deploy finished successfully!"

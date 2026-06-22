@@ -4,7 +4,9 @@ services:
     environment:
       POSTGRES_DB: ${KC_DB_USERNAME:-keycloak}
       POSTGRES_USER: ${KC_DB_USERNAME:-keycloak}
-      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      # Use POSTGRES_PASSWORD (not KC_DB_PASSWORD) to avoid docker-compose expanding
+      # special characters like '$' in password values during YAML variable substitution.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-keycloak}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

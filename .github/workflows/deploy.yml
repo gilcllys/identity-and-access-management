@@ -5,12 +5,42 @@ on:
     branches:
       - main
 
+# ─────────────────────────────────────────────────────────────
+# Required GitHub Variables  (Settings → Variables → Actions)
+#   DOCKER_HUB_USERNAME              = gilcllys506
+#   EC2_HOST, EC2_USER
+#   KC_DB, KC_DB_USERNAME
+#   KC_BOOTSTRAP_ADMIN_USERNAME
+#   KC_HTTP_ENABLED, KC_HOSTNAME_STRICT, KC_PROXY_HEADERS, KC_HOSTNAME
+#
+# Required GitHub Secrets    (Settings → Secrets → Actions)
+#   DOCKER_HUB_TOKEN
+#   EC2_SSH_KEY
+#   KC_DB_PASSWORD, KC_BOOTSTRAP_ADMIN_PASSWORD
+# ─────────────────────────────────────────────────────────────
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Write .env and deploy via SSH
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push keycloak image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.DOCKER_HUB_USERNAME }}/keycloak-iam:latest
+
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ vars.EC2_HOST }}
@@ -18,25 +48,26 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            cd ${{ vars.EC2_PROJECT_PATH }}
 
-            # Generate .env from GitHub secrets and variables
-            cat > .env <<'EOF'
-            KC_DB=${{ vars.KC_DB }}
-            KC_DB_URL=jdbc:postgresql://postgres:5432/${{ vars.KC_DB_USERNAME }}
-            KC_DB_USERNAME=${{ vars.KC_DB_USERNAME }}
-            KC_DB_PASSWORD=${{ secrets.KC_DB_PASSWORD }}
-            POSTGRES_PASSWORD=${{ secrets.KC_DB_PASSWORD }}
-            KC_BOOTSTRAP_ADMIN_USERNAME=${{ vars.KC_BOOTSTRAP_ADMIN_USERNAME }}
-            KC_BOOTSTRAP_ADMIN_PASSWORD=${{ secrets.KC_BOOTSTRAP_ADMIN_PASSWORD }}
-            KC_HTTP_ENABLED=${{ vars.KC_HTTP_ENABLED }}
-            KC_HOSTNAME_STRICT=${{ vars.KC_HOSTNAME_STRICT }}
-            KC_PROXY_HEADERS=${{ vars.KC_PROXY_HEADERS }}
-            KC_HOSTNAME=${{ vars.KC_HOSTNAME }}
-            EOF
+            echo "📝 Writing ~/keycloack/.env..."
+            printf 'KC_DB=%s\n'                       '${{ vars.KC_DB }}'                        >  ~/keycloack/.env
+            printf 'KC_DB_URL=jdbc:postgresql://postgres:5432/%s\n' '${{ vars.KC_DB_USERNAME }}' >> ~/keycloack/.env
+            printf 'KC_DB_USERNAME=%s\n'              '${{ vars.KC_DB_USERNAME }}'               >> ~/keycloack/.env
+            printf 'KC_DB_PASSWORD=%s\n'              '${{ secrets.KC_DB_PASSWORD }}'            >> ~/keycloack/.env
+            printf 'KC_BOOTSTRAP_ADMIN_USERNAME=%s\n' '${{ vars.KC_BOOTSTRAP_ADMIN_USERNAME }}'  >> ~/keycloack/.env
+            printf 'KC_BOOTSTRAP_ADMIN_PASSWORD=%s\n' '${{ secrets.KC_BOOTSTRAP_ADMIN_PASSWORD }}' >> ~/keycloack/.env
+            printf 'KC_HTTP_ENABLED=%s\n'             '${{ vars.KC_HTTP_ENABLED }}'              >> ~/keycloack/.env
+            printf 'KC_HOSTNAME_STRICT=%s\n'          '${{ vars.KC_HOSTNAME_STRICT }}'           >> ~/keycloack/.env
+            printf 'KC_PROXY_HEADERS=%s\n'            '${{ vars.KC_PROXY_HEADERS }}'             >> ~/keycloack/.env
+            printf 'KC_HOSTNAME=%s\n'                 '${{ vars.KC_HOSTNAME }}'                  >> ~/keycloack/.env
 
-            git pull origin main
-            docker compose up -d --build
-            sudo chmod 644 ./certs/fullchain.pem ./certs/privkey.pem 2>/dev/null || true
+            echo "🐳 Pulling latest keycloak image from Docker Hub..."
+            docker compose -f ~/main/docker-compose.yml pull keycloak
+
+            echo "🚀 Restarting keycloak container..."
+            docker compose -f ~/main/docker-compose.yml up -d --no-deps keycloak
+
+            echo "🔄 Reloading host nginx..."
             sudo nginx -t && sudo systemctl reload nginx
+
             echo "✅ Deploy finished successfully!"

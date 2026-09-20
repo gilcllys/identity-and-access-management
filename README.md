@@ -74,7 +74,7 @@ cp .env.example .env
 | `KC_HTTP_ENABLED` | `true` — HTTP habilitado internamente (HTTPS termina no Nginx) |
 | `KC_HOSTNAME_STRICT` | `false` — permite acesso pelo IP/hostname do EC2 |
 | `KC_PROXY_HEADERS` | `xforwarded` — Keycloak lê os headers `X-Forwarded-*` do Nginx |
-| `KC_HOSTNAME` | URL pública completa (ex: `https://ec2-xx-xx.compute-1.amazonaws.com`) |
+| `KC_HOSTNAME` | URL pública completa (ex: `https://auth.gilcllys.party`) |
 
 > **⚠️ Atenção com `$` nas senhas:** senhas contendo `$` (ex: `K9mP7$abc`) são expandidas pelo docker-compose ao ler variáveis YAML. Use `POSTGRES_PASSWORD` com uma senha sem `$`, ou escape com `$$`.
 
@@ -133,18 +133,18 @@ Todo push na branch `main` dispara o pipeline `.github/workflows/deploy.yml`:
 | `KC_HTTP_ENABLED` | `true` |
 | `KC_HOSTNAME_STRICT` | `false` |
 | `KC_PROXY_HEADERS` | `xforwarded` |
-| `KC_HOSTNAME` | `https://ec2-xx-xx.compute-1.amazonaws.com` |
+| `KC_HOSTNAME` | `https://auth.gilcllys.party` |
 
 ## Endpoints
 
 | URL | Descrição |
 |---|---|
-| `https://<EC2_HOST>/` | Keycloak — tela de login |
-| `https://<EC2_HOST>/admin` | Console de administração |
-| `https://<EC2_HOST>/realms/master` | Realm master |
-| `https://<EC2_HOST>/health/ready` | Health check |
-| `https://<EC2_HOST>:4200/` | Financial System (Angular) |
-| `https://<EC2_HOST>:4200/api/` | Financial System API (Django) |
+| `https://auth.gilcllys.party/` | Keycloak — tela de login |
+| `https://auth.gilcllys.party/admin` | Console de administração |
+| `https://auth.gilcllys.party/realms/master` | Realm master |
+| `https://auth.gilcllys.party/health/ready` | Health check |
+| `https://auth.gilcllys.party:4200/` | Financial System (Angular) |
+| `https://auth.gilcllys.party:4200/api/` | Financial System API (Django) |
 
 ## Desenvolvimento local
 

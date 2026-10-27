@@ -1,6 +1,6 @@
 # identity-and-access-management
 
-Keycloak 26.6 rodando em uma instância **AWS EC2** (Ubuntu 26.04 LTS), com PostgreSQL 16 via Docker Compose e Nginx como proxy reverso SSL no host.
+Keycloak 26.8.1 rodando em uma instância **AWS EC2** (Ubuntu 26.04 LTS), com PostgreSQL 16 via Docker Compose e Nginx como proxy reverso SSL no host.
 
 Atua como provedor de identidade (IdP) central para os projetos pessoais — atualmente integrado ao [Financial-System](https://github.com/gilcllys/Financial-System).
 
@@ -18,7 +18,7 @@ EC2 Host (Ubuntu 26.04)
    │     └── :4200 → proxy → Financial System (Angular :3000 / Django :8000)
    │
    └── Docker Compose
-         ├── keycloak  (quay.io/keycloak/keycloak:26.6 — imagem pré-compilada)
+         ├── keycloak  (quay.io/keycloak/keycloak:26.8.1 — imagem pré-compilada)
          │     └── porta interna: 127.0.0.1:8080
          └── postgres  (postgres:16)
                └── volume persistente: postgres_data
@@ -28,7 +28,7 @@ EC2 Host (Ubuntu 26.04)
 
 | Componente | Detalhe |
 |---|---|
-| Keycloak | 26.6.3, modo `start --optimized` (Quarkus pré-compilado em 2 stages) |
+| Keycloak | 26.8.1, modo `start --optimized` (Quarkus pré-compilado em 2 stages) |
 | Banco | PostgreSQL 16, acesso interno via rede Docker, sem porta exposta ao host |
 | SSL | Certificados em `certs/fullchain.pem` e `certs/privkey.pem` (TLSv1.2 / TLSv1.3) |
 | Proxy | Nginx no host com `proxy_headers=xforwarded` e buffers de 256k para o Keycloak |
